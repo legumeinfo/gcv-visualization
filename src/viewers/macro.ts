@@ -27,15 +27,6 @@ export class Macro extends Visualizer {
       (options && options.colors) || ((s) => "#000000"), options);
   }
 
-  /** Resizes the viewer and scale. Will be decorated by other components. */
-  protected resize() {
-    const w = this.container.clientWidth;
-    const r1 = this.left + (2 * this.PAD);
-    const r2 = w - (this.right + this.PAD);
-    this.viewer.attr("width", w);
-    this.scale.range([r1, r2]);
-  }
-
   /** Handles events that come from the GCV eventBus.
    * @param {GCVevent} event - A GCV event containing a type and targets attributes.
    */
@@ -101,7 +92,6 @@ export class Macro extends Visualizer {
     // create the scale used to map block coordinates to pixels
     this.scale = d3.scaleLinear()
       .domain([0, data.length]);
-    super.initResize();
     // parse optional parameters
     this.options = Object.assign({}, options);
     this.options.nameClick = this.options.nameClick || ((y, i) => { /* noop */ });
@@ -109,7 +99,6 @@ export class Macro extends Visualizer {
     this.options.blockOver = this.options.blockOver || ((e, t, b) => { /* noop */ });
     this.options.viewportDrag = this.options.viewportDrag;
     this.options.viewport = this.options.viewport || false;
-    this.options.autoResize = this.options.autoResize || false;
     this.options.hoverDelay = this.options.hoverDelay || 500;
     this.options.highlight = this.options.highlight || [];
     if (this.options.contextmenu) {
@@ -120,55 +109,53 @@ export class Macro extends Visualizer {
     }
   }
 
+  protected setScale(): void {
+    const w = this.container.clientWidth;
+    const r1 = this.left + (2 * this.PAD);
+    const r2 = w - (this.right + this.PAD);
+    this.scale.range([r1, r2]);
+  }
+
   /** Draws the viewer. */
   protected draw() {
+    // vestige of auto-resize
+    const w = this.container.clientWidth;
+    this.viewer.attr("width", w);
+    this.setScale();
     // draw the x-axis
     const xAxis = this.drawXAxis();
     this.positionElement(xAxis);
-    // decorate the resize function with that of the x-axis
-    this.decorateResize(xAxis.resize);
     // draw the tracks
-    const ticks = [];
     const tracks = [];
+    const ticks = [];
     const t = this.viewer.attr("height");
     for (let i = 0; i < this.data.tracks.length; i++) {
       // make the track
       const track = this.drawTrack(i);
+      tracks.push(track);
       // put it in the correct location
       const m = this.positionElement(track);
       // save the track"s label location
       ticks.push(m);
-      // save the track for the resize call
-      tracks.push(track);
     }
     const b = this.viewer.attr("height");
-    // decorate the resize function with that of the track
-    const resizeTracks = () => {
-      tracks.forEach((t, i) => {
-        t.resize();
-      });
-    };
-    this.decorateResize(resizeTracks);
     // draw the y-axis
     const yAxis = this.drawYAxis(ticks, t, b);
     this.left = Math.max(xAxis.labelWidth, yAxis.node().getBBox().width)
               + this.PAD;
     yAxis.attr("transform", "translate(" + this.left + ", 0)");
     this.left += this.PAD;
-    this.resize();
+    // resize the x-axis and tracks to make room for the y-axis
+    this.setScale();
+    xAxis.resize();
+    tracks.map((t) => t.resize());
     // draw the viewport
     if (this.options.viewport) {
       const viewport = this.drawViewport();
-      this.decorateResize(viewport.resize);
-    }
-    // create an auto resize iframe, if necessary
-    if (this.options.autoResize) {
-      this.autoResize();
     }
     // add bottom padding
     const h = parseInt(this.viewer.attr("height"), 10) + this.PAD;
     this.viewer.attr("height", h);
-    this.resize();
   }
 
   /**
@@ -227,14 +214,10 @@ export class Macro extends Visualizer {
           this.options.viewportDrag(d3.event, d1, d2);
         }));
     }
-    // how the viewport is resized
-    viewport.resize = function() {
-      const x1 = this.scale(this.options.viewport.start);
-      const x2 = this.scale(this.options.viewport.stop);
-      viewport.attr("x", x1).attr("width", x2 - x1);
-    }.bind(this);
-    // resize once to position everything
-    viewport.resize();
+    // vestiges of auto-resize
+    const x1 = this.scale(this.options.viewport.start);
+    const x2 = this.scale(this.options.viewport.stop);
+    viewport.attr("x", x1).attr("width", x2 - x1);
     return viewport;
   }
 
@@ -323,7 +306,7 @@ export class Macro extends Visualizer {
   }
 
   /**
-   * Creates a graphic containing a track"s blocks.
+   * Creates a graphic containing a track's blocks.
    * @param {number} i - The index of the track in the input data to draw.
    * @return {object} - D3 selection of the new track.
    */
@@ -332,7 +315,7 @@ export class Macro extends Visualizer {
     const datum = this.data.tracks[i];
     const name = datum.genus + " " + datum.species;
     const c = this.options.colors(name);
-    // create the track"s rows of blocks
+    // create the track's rows of blocks
     const blockData = datum.blocks.map((b) => Object.create(b));
     this.blocksToRows(blockData);
     // create the track
@@ -342,7 +325,7 @@ export class Macro extends Visualizer {
       .attr("data-chromosome", datum.chromosome)
       .attr("data-organism", datum.genus + " " + datum.species);
     track.offset = 0;
-    // create the track"s blocks
+    // create the track's blocks
     const publishBlockEvent = (type, block) => {
       return () => eventBus.publish({
         type,
@@ -387,7 +370,7 @@ export class Macro extends Visualizer {
     const genPoints = (b, yTop, yBottom, yMiddle) => {
       const x1 = obj.scale(b.query_start);
       const x2 = obj.scale(b.query_stop);
-      // draw a block if it"s large enough
+      // draw a block if it's large enough
       if (x2 - x1 > obj.PTR_LEN) {
         const p = [  // x, y coordinates of block
           x1, yTop,
@@ -439,7 +422,7 @@ export class Macro extends Visualizer {
         .attr("fill", "#e7e7e7")
         .moveToBack();
     }
-    // how the blocks are resized
+    // vestiges of auto-resize
     track.resize = function(polygons) {
       const obj = this;
       polygons.attr("points", function(b) {
@@ -453,6 +436,9 @@ export class Macro extends Visualizer {
         track.highlight.attr("width", this.viewer.attr("width"));
       }
     }.bind(this, polygons);
+    if (track.highlight !== undefined) {
+      track.highlight.attr("width", this.viewer.attr("width"));
+    }
     return track;
   }
 

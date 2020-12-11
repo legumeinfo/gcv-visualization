@@ -19,12 +19,6 @@ export class Micro extends Visualizer {
   // Constants
   private GLYPH_SIZE: number;
 
-  /** Resizes the viewer and x scale. Will be decorated by other components. */
-  protected resize() {
-    const w = this.container.clientWidth;
-    this.viewer.attr("width", w);
-  }
-
   /** Handles events that come from the GCV eventBus.
    * @param {GCVevent} event - A GCV event containing a type and targets attributes.
    */
@@ -91,7 +85,6 @@ export class Micro extends Visualizer {
     this.options.geneClick = this.options.geneClick || ((t, g, i) => { /* noop */ });
     this.options.geneOver = this.options.geneOver || ((e, t, g, i) => { /* noop */ });
     this.options.plotClick = this.options.plotClick;
-    this.options.autoResize = this.options.autoResize || false;
     this.options.hoverDelay = this.options.hoverDelay || 500;
     this.options.prefix = this.options.prefix || ((t) => "");
     // create the viewer
@@ -103,6 +96,7 @@ export class Micro extends Visualizer {
     const top = this.PAD + halfTrack;
     const bottom = top + (this.GLYPH_SIZE * numLevels);
     this.viewer.attr("height", bottom + halfTrack);
+    this.viewer.attr("width", this.container.clientWidth);
     // compute the x scale, track names and locations, and line thickness
     let minX = Infinity;
     let maxX = -Infinity;
@@ -156,59 +150,30 @@ export class Micro extends Visualizer {
       .domain([minDistance, maxDistance])
       .range([.1, 5]);
     this.right = this.PAD;
-    super.initResize();
   }
 
   /** Draws the viewer. */
   protected draw() {
     // draw the y-axes
     const yAxis = this.drawYAxis();
-    const resizeYaxis = () => {
-      this.left = yAxis.node().getBBox().width + this.PAD;
-      yAxis.attr("transform", "translate(" + this.left + ", 0)");
-      this.left += this.PAD;
-    };
-    resizeYaxis();
-    this.decorateResize(resizeYaxis);
-    const setRight = () => this.right = this.PAD;
-    setRight();
-    this.decorateResize(setRight);
+    this.left = yAxis.node().getBBox().width + this.PAD;
+    yAxis.attr("transform", "translate(" + this.left + ", 0)");
+    this.left += this.PAD;
+    this.right = this.PAD;
     if (this.options.plotClick !== undefined) {
       const plotAxis = this.drawPlotAxis();
-      const resizePlotYAxis = () => {
-        this.right += plotAxis.node().getBBox().width + this.PAD;
-        const x = this.viewer.attr("width") - this.right + this.PAD;
-        plotAxis.attr("transform", "translate(" + x + ", 0)");
-      };
-      resizePlotYAxis();
-      this.decorateResize(resizePlotYAxis);
+      this.right += plotAxis.node().getBBox().width + this.PAD;
+      const x = this.viewer.attr("width") - this.right + this.PAD;
+      plotAxis.attr("transform", "translate(" + x + ", 0)");
     }
     // draw the tracks
-    const setXrange = () => {
-      const w = this.container.clientWidth;
-      const halfGlyph = this.GLYPH_SIZE / 2;
-      const r1 = this.left + halfGlyph;
-      const r2 = w - (this.right + halfGlyph);
-      this.x.range([r1, r2]);
-    };
-    setXrange();
-    this.decorateResize(setXrange);
-    const tracks = [];
+    const w = this.container.clientWidth;
+    const halfGlyph = this.GLYPH_SIZE / 2;
+    const r1 = this.left + halfGlyph;
+    const r2 = w - (this.right + halfGlyph);
+    this.x.range([r1, r2]);
     for (let i = 0; i < this.data.length; i++) {
-      // make the track and save it for the resize call
-      tracks.push(this.drawTrack(i).moveToBack());
-    }
-    // decorate the resize function with that of the track
-    const resizeTracks = () => {
-      tracks.forEach((t, i) => {
-        t.resize();
-      });
-    };
-    resizeTracks();
-    this.decorateResize(resizeTracks);
-    // create an auto resize listener, if necessary
-    if (this.options.autoResize) {
-      this.autoResize();
+      this.drawTrack(i).moveToBack();
     }
   }
 
@@ -341,27 +306,24 @@ export class Micro extends Visualizer {
         .attr("fill", "#e7e7e7")
         .moveToBack();
     }
-    // how the track is resized
-    track.resize = function(geneGroups, linesGroups, lines) {
-      const obj = this;
-      geneGroups.attr("transform", (g) => {
-        return "translate(" + obj.x(g.x) + ", " + obj.y(y + g.y) + ")";
-      });
-      lineGroups.attr("transform", (n) => {
-        const left = Math.min(n.a.x, n.b.x);
-        const top = y + Math.min(n.a.y, n.b.y);
-        return "translate(" + obj.x(left) + ", " + obj.y(top) + ")";
-      });
-      lines.attr("x2", (n) => Math.abs(obj.x(n.a.x) - obj.x(n.b.x)));
-      if (track.highlight !== undefined) {
-        const highY = obj.y(y) + geneGroups.node().getBBox().y;
-        const height = track.node().getBBox().height;
-        track.highlight
-          .attr("width", obj.viewer.attr("width"))
-          .attr("y", highY)
-          .attr("height", height);
-      }
-    }.bind(this, geneGroups, lineGroups, lines);
+    // vestiges of auto-resize
+    geneGroups.attr("transform", (g) => {
+      return "translate(" + obj.x(g.x) + ", " + obj.y(y + g.y) + ")";
+    });
+    lineGroups.attr("transform", (n) => {
+      const left = Math.min(n.a.x, n.b.x);
+      const top = y + Math.min(n.a.y, n.b.y);
+      return "translate(" + obj.x(left) + ", " + obj.y(top) + ")";
+    });
+    lines.attr("x2", (n) => Math.abs(obj.x(n.a.x) - obj.x(n.b.x)));
+    if (track.highlight !== undefined) {
+      const highY = obj.y(y) + geneGroups.node().getBBox().y;
+      const height = track.node().getBBox().height;
+      track.highlight
+        .attr("width", obj.viewer.attr("width"))
+        .attr("y", highY)
+        .attr("height", height);
+    }
     return track;
   }
 

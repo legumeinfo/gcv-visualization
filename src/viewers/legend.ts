@@ -8,13 +8,6 @@ export class Legend extends Visualizer {
   // Constants
   private RECT_SIZE: number;
 
-  /** Resizes the viewer and x scale. Will be decorated by other components. */
-  protected resize() {
-    // viewer
-    const w = this.container.clientWidth;
-    this.viewer.attr("width", w);
-  }
-
   /** Handles events that come from the GCV eventBus.
    * @param {GCVevent} event - A GCV event containing a type and targets attributes.
    */
@@ -66,30 +59,24 @@ export class Legend extends Visualizer {
     this.options.checkboxCallback = this.options.checkboxCallback || ((id, checked) => { /* noop */ });
     this.options.selectiveColoring = this.options.selectiveColoring;
     this.options.keyClick = this.options.keyClick || ((k) => { /* noop */ });
-    this.options.autoResize = this.options.autoResize || false;
     this.options.hoverDelay = this.options.hoverDelay || 0;
     this.options.selector = this.options.selector || "";
     this.options.blank = this.options.blank || undefined;
     this.options.blankDashed = this.options.blankDashed || undefined;
     this.options.multiDelimiter = this.options.multiDelimiter || undefined;
     this.options.sizeCallback = this.options.sizeCallback || ((s) => { /* noop */ });
-    super.initResize();
   }
 
   /** Draws the viewer. */
   protected draw() {
     // draw the legend
+    const w = this.container.clientWidth;
+    this.viewer.attr("width", w);
     const legend = this.drawLegend();
     legend.attr("y", this.PAD);
-    this.decorateResize(legend.resize);
     const lBox = legend.node().getBBox();
     this.options.sizeCallback({width: lBox.width, height: lBox.height});
     this.viewer.attr("height", lBox.y + lBox.height + (2 * this.PAD));
-    // create an auto resize iframe, if necessary
-    if (this.options.autoResize) {
-      this.autoResize();
-    }
-    this.resize();
   }
 
   /**
@@ -169,23 +156,20 @@ export class Legend extends Visualizer {
           obj.options.checkboxCallback(f.id, this.checked);
         };
     }
-    // implement the resize function
-    row.resize = function(f, shape, text, foreigner) {
-      const w = this.viewer.attr("width");
-      let x = w - (this.PAD + this.RECT_SIZE);
-      if (f.glyph === "circle") {
-        shape.attr("cx", x + this.RECT_SIZE/2)
-      } else {
-        shape.attr("x", x);
-      }
-      x -= (2 * this.PAD);
-      text.attr("x", x);
-      if (foreigner !== undefined) {
-        x -= this.RECT_SIZE + text.node().getComputedTextLength();
-        foreigner.attr("x", x);
-      }
-    }.bind(this, f, shape, text, foreigner);
-    row.resize();
+    // vestiges of resize function
+    const w = this.viewer.attr("width");
+    let x = w - (this.PAD + this.RECT_SIZE);
+    if (f.glyph === "circle") {
+      shape.attr("cx", x + this.RECT_SIZE/2)
+    } else {
+      shape.attr("x", x);
+    }
+    x -= (2 * this.PAD);
+    text.attr("x", x);
+    if (foreigner !== undefined) {
+      x -= this.RECT_SIZE + text.node().getComputedTextLength();
+      foreigner.attr("x", x);
+    }
     return row;
   }
 
@@ -219,10 +203,6 @@ export class Legend extends Visualizer {
       k.attr("transform", "translate(0, " + y + ")");
       legend.keys.push(k);
     });
-    // implement the resize function
-    legend.resize = function(keys) {
-      keys.forEach((k) => { k.resize(); });
-    }.bind(this, legend.keys);
     return legend;
   }
 }

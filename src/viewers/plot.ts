@@ -1,6 +1,5 @@
 import { d3 } from "./d3";
 import { eventBus } from "../common"
-import ResizeObserver from "resize-observer-polyfill";
 
 /** The dot plot viewer. */
 export class Plot {
@@ -16,7 +15,6 @@ export class Plot {
   private brushSelection: any;
   private beginHoverTimeout: any;
   protected hoverTimeout: any;
-  private resizeTimer: any;
 
   constructor(el, colors, plot, options) {
     this.container = el;
@@ -24,15 +22,10 @@ export class Plot {
     this.parseOptions(options);
     this.parseData(plot);
     this.draw();
-    if (this.options.autoResize) {
-      this.autoResize();
-    }
   }
 
   private parseOptions(options): void {
     this.options = options || {};
-    this.options.autoResize = this.options.autoResize || false;
-    this.options.resizeDelay = this.options.resizeDelay || 250;
     this.options.selectiveColoring = this.options.selectiveColoring;
     this.options.geneClick = this.options.geneClick || ((g, i) => { /* noop */ });
     this.options.geneOpen = this.options.geneOver || ((e, g, i) => { /* noop */ });
@@ -42,7 +35,6 @@ export class Plot {
     this.options.brushup = this.options.brushup || ((brushed) => {
         // noop
       });
-    this.options.autoResize = this.options.autoResize || false;
     this.options.outlier  = this.options.outlier || undefined;
     this.options.hoverDelay = this.options.hoverDelay || 500;
   }
@@ -249,24 +241,6 @@ export class Plot {
         d3.selectAll(".GCV").classed("hovering", false);
       }
     }, 125);
-  }
-
-  // TODO: clearTimeout doesn't appear to be working due to a scoping issue
-  // NOTE: is there a more efficient way to resize other than redrawing?
-  // NOTE: does the observer need to be disconnected?
-  private autoResize() {
-    const ro = new ResizeObserver((entries) => {
-      clearTimeout(this.resizeTimer);
-      const id = this.resizeTimer = setTimeout(() => {
-        const width = Math.max(this.container.clientWidth, this.container.clientHeight);
-        // NOTE: shouldn't have to check if circos is undefined if scope is correct...
-        if (this.viewer !== undefined && this.viewer.attr("width") !== width) {
-          this.destroy();
-          this.draw();
-        }
-      }, this.options.resizeDelay);
-    });
-    ro.observe(this.container);
   }
 
   /** Handles events that come from the GCV eventBus.

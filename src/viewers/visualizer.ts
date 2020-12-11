@@ -1,5 +1,5 @@
 import { d3 } from "./d3";
-import ResizeObserver from "resize-observer-polyfill";
+
 
 export abstract class Visualizer {
   // private
@@ -8,8 +8,6 @@ export abstract class Visualizer {
   protected container: HTMLElement;
   protected data: any;
   protected options: any;
-  protected resizeObserver: any;
-  protected resizeTimer: any;
   protected viewer: any;
   protected callbackTimeout;
 
@@ -52,30 +50,8 @@ export abstract class Visualizer {
     if (this.eventBus !== undefined) {
       this.eventBus.unsubscribe();
     }
-    if (this.resizeObserver) {
-      this.resizeObserver.disconnect();
-    }
     this.viewer.node().remove();
-    this.container = this.viewer = this.resizeObserver = undefined;
-  }
-
-  /**
-   * Adds a ResizeObserver to the viewer element to detect resize events.
-   */
-  protected autoResize() {
-    this.resizeObserver = new ResizeObserver((entries) => {
-      clearTimeout(this.resizeTimer);
-      const id = this.resizeTimer = setTimeout(() => {
-        if (this.container !== undefined && this.viewer !== undefined) {
-          const width =
-            Math.max(this.container.clientWidth, this.container.clientHeight);
-          if (this.viewer.attr("width") !== width) {
-            this.resize();
-          }
-        }
-      }, this.options.resizeDelay);
-    });
-    this.resizeObserver.observe(this.container);
+    this.container = this.viewer = undefined;
   }
 
   /**
@@ -95,26 +71,6 @@ export abstract class Visualizer {
   protected clearTimeout(callback) {
     clearTimeout(this.callbackTimeout);
     callback();
-  }
-
-  protected abstract resize(): void;
-
-  /**
-   * Decorates the resize function with the given function.
-   * @param {function} d - The decorator function.
-   */
-  protected decorateResize(d) {
-    this.resize = function(resize) {
-      resize();
-      d();
-    }.bind(this, this.resize);
-  }
-
-  protected initResize() {
-    // make sure resize always has the right context
-    this.resize = this.resize.bind(this);
-    // initialize the viewer width/height and scale range
-    this.resize();
   }
 
   /**

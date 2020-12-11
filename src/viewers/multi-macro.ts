@@ -1,7 +1,6 @@
 import { d3 } from "./d3";
 import * as Circos from "circos";
 import { eventBus } from "../common"
-import ResizeObserver from "resize-observer-polyfill";
 
 export class MultiMacro {
 
@@ -10,22 +9,16 @@ export class MultiMacro {
   private options: any;
   private data: any;
   private circos: any;
-  private resizeTimer: any;
 
   constructor(el, multiMacroTracks, options) {
     this.container = el;
     this.parseOptions(options);
     this.parseData(multiMacroTracks);
     this.drawCircos();
-    if (this.options.autoResize) {
-      this.autoResize();
-    }
   }
 
   private parseOptions(options): void {
     this.options = options || {};
-    this.options.autoResize = this.options.autoResize || false;
-    this.options.resizeDelay = this.options.resizeDelay || 250;
     this.options.highlight = this.options.highlight || [];
     this.options.replicateBlocks = this.options.replicateBlocks || false;
     if (this.options.colors === undefined) {
@@ -270,24 +263,6 @@ export class MultiMacro {
       const pathRef = this.options.IRIprefix + textPath.attr('href');
       textPath.attr('href', pathRef);
     });
-  }
-
-  // TODO: clearTimeout doesn't appear to be working due to a scoping issue
-  // NOTE: is there a more efficient way to resize other than redrawing?
-  private autoResize() {
-    const scope = this;
-    const ro = new ResizeObserver((entries) => {
-      clearTimeout(this.resizeTimer);
-      const id = this.resizeTimer = setTimeout(() => {
-        const width = Math.min(this.container.clientWidth, this.container.clientHeight);
-        // NOTE: shouldn't have to check if circos is undefined if scope is correct...
-        if (this.circos !== undefined && this.circos.conf.width !== width) {
-          this.destroy();
-          this.drawCircos();
-        }
-      }, this.options.resizeDelay);
-    });
-    ro.observe(this.container);
   }
 
   /** Handles events that come from the GCV eventBus.
